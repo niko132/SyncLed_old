@@ -3,6 +3,8 @@
 #include "Logger.h"
 #include "TimeManager.h"
 
+#include <ESP8266WiFi.h>
+
 void ESPVirtualDeviceManager::begin(size_t ledCount) {
     _ledCount = ledCount;
     _colors = new RgbColor[ledCount];
@@ -17,6 +19,11 @@ void ESPVirtualDeviceManager::update() {
 
     if (mills - _lastUpdate > 1000.0 / 60.0) {
         unsigned long now = TimeManager.syncedMillis();
+
+        RgbColor black(0, 0, 0);
+        for (int i = 0; i < _ledCount; i++) {
+            _colors[i] = black;
+        }
 
         for (std::map<unsigned long, VirtualDeviceWrapper*>::iterator it = _virtualDevices.begin(); it != _virtualDevices.end(); it++) {
             VirtualDeviceWrapper *wrapper = it->second;
@@ -164,6 +171,84 @@ void ESPVirtualDeviceManager::logConfig() {
     }
 
     Logger.println();
+}
+
+void ESPVirtualDeviceManager::writeConfig(JsonObject &root) {
+    JsonArray devicesArr = root.createNestedArray("devices");
+
+    JsonObject ownDeviceObj = devicesArr.createNestedObject();
+    ownDeviceObj["ip"] = WiFi.localIP().toString();
+    ownDeviceObj["ledCount"] = _ledCount;
+
+    JsonArray virtualDevicesArr = ownDeviceObj.createNestedArray("virtualDevices");
+
+    for (std::map<unsigned long, VirtualDeviceWrapper*>::iterator it = _virtualDevices.begin(); it != _virtualDevices.end(); it++) {
+        VirtualDeviceWrapper *wrapper = it->second;
+
+        JsonObject virtualDeviceObj = virtualDevicesArr.createNestedObject();
+        virtualDeviceObj["startIndex"] = wrapper->getStartIndex();
+        virtualDeviceObj["endIndex"] = wrapper->getEndIndex();
+
+        wrapper->getVirtualDevice()->writeConfig(virtualDeviceObj);
+    }
+}
+
+bool ESPVirtualDeviceManager::fromConfig(JsonObject &root) {
+    JsonArray devicesArr = root["devices"].as<JsonArray>();
+    if (devicesArr.isNull()) {
+        Logger.println("DevicesArray is null");
+        return false;
+    }
+
+    JsonObject ownDeviceObj;
+
+    for (JsonVariant deviceVar : devicesArr) {
+        JsonObject deviceObj = deviceVar.as<JsonObject>();
+        if(deviceObj.isNull()) {
+            continue;
+        }
+
+        if (WiFi.localIP().toString().equals(deviceObj["ip"].as<String>())) {
+            ownDeviceObj = deviceObj;
+            break;
+        }
+    }
+
+    if (ownDeviceObj.isNull()) {
+        Logger.println("OwnDeviceObject is null");
+        return false;
+    }
+
+    _ledCount = ownDeviceObj["ledCount"];
+
+    JsonArray virtualDevicesArr = ownDeviceObj["virtualDevices"];
+    if (virtualDevicesArr.isNull()) {
+        Logger.println("VirtualDevicesArray is null");
+        return false;
+    }
+
+    std::map<unsigned long, VirtualDeviceWrapper*>::iterator it = _virtualDevices.begin();
+    while (it != _virtualDevices.end()) {
+        std::map<unsigned long, VirtualDeviceWrapper*>::iterator current = it++;
+
+        VirtualDeviceWrapper *wrapper = current->second;
+        if(wrapper) {
+            delete wrapper;
+        }
+        _virtualDevices.erase(current);
+    }
+
+    for (JsonVariant virtualDeviceVar : virtualDevicesArr) {
+        JsonObject virtualDeviceObj = virtualDeviceVar.as<JsonObject>();
+        if (virtualDeviceObj.isNull()) {
+            continue;
+        }
+
+        VirtualDeviceWrapper *wrapper = new VirtualDeviceWrapper(virtualDeviceObj);
+        _virtualDevices[wrapper->getVirtualDevice()->getId()] = wrapper;
+    }
+
+    return true;
 }
 
 

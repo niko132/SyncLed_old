@@ -12,6 +12,7 @@
 class VirtualDevice {
     private:
         unsigned long _id;
+        String _name;
         size_t _ledCount;
 
         Effect *_effect = NULL;
@@ -22,9 +23,32 @@ class VirtualDevice {
     public:
         VirtualDevice(size_t ledCount) {
             _id = millis(); // TODO: fix
+            _name = "VD#" + String(_id);
             _ledCount = ledCount;
 
             _effect = new Cycle();
+        }
+
+        ~VirtualDevice() {
+            if (_effect) {
+                delete _effect;
+                _effect = NULL;
+            }
+        }
+
+        VirtualDevice(JsonObject &root, size_t ledCount) {
+            _id = root["id"];
+            _name = root["name"].as<String>();
+            _posOffsetStart = root["posOffsetStart"];
+            _posOffsetEnd = root["posOffsetEnd"];
+            _ledCount = ledCount;
+
+            JsonObject effectDataObj = root["effectData"];
+            if (effectDataObj.isNull()) {
+                _effect = new Cycle();
+            } else {
+                _effect = new Cycle(effectDataObj);
+            }
         }
 
         void update(unsigned long now, RgbColor *colors) {
@@ -42,6 +66,14 @@ class VirtualDevice {
             return _id;
         }
 
+        String getName() {
+            return _name;
+        }
+
+        void setName(String name) {
+            _name = name;
+        }
+
         void setLedCount(size_t ledCount) {
             _ledCount = ledCount;
         }
@@ -52,6 +84,17 @@ class VirtualDevice {
 
         void setPosOffsetEnd(double posOffsetEnd) {
             _posOffsetEnd = posOffsetEnd;
+        }
+
+        void writeConfig(JsonObject &root) {
+            root["id"] = _id;
+            root["name"] = _name;
+            root["posOffsetStart"] = _posOffsetStart;
+            root["posOffsetEnd"] = _posOffsetEnd;
+            root["effectId"] = (unsigned long)_effect;
+
+            JsonObject effectDataObj = root.createNestedObject("effectData");
+            _effect->writeConfig(effectDataObj);
         }
 
 };

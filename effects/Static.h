@@ -31,6 +31,10 @@ class Static : public Effect {
 
             return RgbColor(0, 0, 0);
         }
+
+        void writeConfig(JsonObject &root) {
+            root["paletteName"] = "BlueAndRed";
+        }
 };
 
 #endif // STATIC_H

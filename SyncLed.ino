@@ -3,6 +3,7 @@
 #include <WiFiUdp.h>
 #include <ArduinoOTA.h>
 
+#include <FS.h>
 #include <ESPAsyncWebServer.h>
 
 #include "Logger.h"
@@ -21,13 +22,18 @@
 const char* ssid = STASSID;
 const char* password = STAPSK;
 
-IPAddress ip(192, 168, 178, 116);
+IPAddress ip(192, 168, 178, 113);
 
 IPAddress gateway(192, 168, 178, 1);
 IPAddress subnet(255, 255, 255, 0);
 
 
 AsyncWebServer server(80);
+AsyncWebSocket ws("/ws");
+
+
+String msg = "";
+
 
 void setup() {
     Serial.begin(115200);
@@ -43,17 +49,104 @@ void setup() {
 
     setupOTA();
 
-    server.on("/", HTTP_GET, [](AsyncWebServerRequest *request) {
+
+    if(!SPIFFS.begin()){
+        Serial.println("An Error has occurred while mounting SPIFFS");
+    }
+
+
+    server.on("/millis", HTTP_GET, [](AsyncWebServerRequest *request) {
         request->send(200, "text/html", String(millis()));
     });
 
-    server.on("/1", HTTP_GET, [](AsyncWebServerRequest *request) {
+    server.on("/millis1", HTTP_GET, [](AsyncWebServerRequest *request) {
         request->send(200, "text/html", String((int)(millis() / 1000.0f)));
     });
 
     server.on("/free_heap", HTTP_GET, [](AsyncWebServerRequest *request) {
         request->send(200, "text/html", String(ESP.getFreeHeap()));
     });
+
+    server.on("/", HTTP_GET, [](AsyncWebServerRequest *request) {
+        Logger.println("Request to index.html");
+		request->send(SPIFFS, "/index.html", String());
+	});
+
+
+
+
+
+    ws.onEvent([msg](AsyncWebSocket *server, AsyncWebSocketClient *client, AwsEventType type, void *arg, uint8_t *data, size_t len) {
+        if(type == WS_EVT_CONNECT){
+            Logger.printf("ws[%s][%u] connect", server->url(), client->id());
+            Logger.println();
+
+            DynamicJsonDocument doc(2048);
+            JsonObject root = doc.to<JsonObject>();
+            VirtualDeviceManager.writeConfig(root);
+            PaletteManager.writeConfig(root);
+
+            String output = "";
+            serializeJson(doc, output);
+
+            client->text(output);
+        } else if(type == WS_EVT_DISCONNECT){
+            Logger.printf("ws[%s][%u] disconnect", server->url(), client->id());
+            Logger.println();
+        } else if(type == WS_EVT_ERROR){
+            Logger.printf("ws[%s][%u] error(%u): %s", server->url(), client->id(), *((uint16_t*)arg), (char*)data);
+            Logger.println();
+        } else if(type == WS_EVT_PONG){
+            Logger.printf("ws[%s][%u] pong[%u]: %s", server->url(), client->id(), len, (len)?(char*)data:"");
+            Logger.println();
+        } else if(type == WS_EVT_DATA){
+            AwsFrameInfo *info = (AwsFrameInfo*)arg;
+            if(info->final && info->index == 0 && info->len == len){
+                //the whole message is in a single frame and we got all of it's data
+                Logger.printf("ws[%s][%u] %s-message[%llu]: ", server->url(), client->id(), (info->opcode == WS_TEXT)?"text":"binary", info->len);
+                Logger.println();
+                msg = "";
+
+                if(info->opcode == WS_TEXT) { // we only care about text messages
+                    for(size_t i=0; i < info->len; i++) {
+                        msg += (char) data[i];
+                    }
+
+                    // TODO: message received
+                    handleConfig(msg);
+                }
+            } else {
+                //message is comprised of multiple frames or the frame is split into multiple packets
+                if(info->index == 0){
+                    if(info->num == 0) {
+                        Logger.printf("ws[%s][%u] %s-message start", server->url(), client->id(), (info->message_opcode == WS_TEXT)?"text":"binary");
+                        Logger.println();
+                        msg = "";
+                    }
+
+                    Logger.printf("ws[%s][%u] frame[%u] start[%llu]", server->url(), client->id(), info->num, info->len);
+                    Logger.println();
+                }
+
+                Logger.printf("ws[%s][%u] frame[%u] %s[%llu - %llu]: ", server->url(), client->id(), info->num, (info->message_opcode == WS_TEXT)?"text":"binary", info->index, info->index + len);
+                Logger.println();
+
+                if(info->opcode == WS_TEXT) { // we only care about text messages
+                    for(size_t i=0; i < len; i++) {
+                        msg += (char) data[i];
+                    }
+
+                    if ((info->index + len) == info->len && info->final) {
+                        // TODO: message received
+                        handleConfig(msg);
+                    }
+                }
+            }
+        }
+    });
+
+    server.addHandler(&ws);
+
 
     server.begin();
     MessageManager.begin();
@@ -84,6 +177,16 @@ void setup() {
     Logger.println(WiFi.localIP());
 }
 
+void handleConfig(String json) {
+    DynamicJsonDocument doc(2048);
+    DeserializationError err = deserializeJson(doc, json);
+    JsonObject root = doc.as<JsonObject>();
+    bool success1 = PaletteManager.fromConfig(root);
+    bool success2 = VirtualDeviceManager.fromConfig(root);
+
+    Logger.println("Got config: " + String(success1) + " " + String(success2));
+}
+
 void setupOTA() {
     // Port defaults to 8266
     // ArduinoOTA.setPort(8266);
@@ -108,6 +211,8 @@ void setupOTA() {
 
         // NOTE: if updating FS this would be the place to unmount FS using FS.end()
         Serial.println("Start updating " + type);
+
+        SPIFFS.end();
     });
     ArduinoOTA.onEnd([]() {
         Logger.println("\nEnd");

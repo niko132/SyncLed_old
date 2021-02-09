@@ -21,6 +21,12 @@ class VirtualDeviceWrapper {
             _device = new VirtualDevice(getLedCount());
         }
 
+        VirtualDeviceWrapper(JsonObject &root) {
+            _startIndex = root["startIndex"];
+            _endIndex = root["endIndex"];
+            _device = new VirtualDevice(root, getLedCount());
+        }
+
         ~VirtualDeviceWrapper() {
             if (_device) {
                 delete _device;
@@ -76,6 +82,10 @@ class ESPVirtualDeviceManager {
         void setEndIndex(unsigned long id, size_t endIndex);
         size_t getVirtualDeviceCount();
         VirtualDevice* getVirtualDevice(unsigned long id);
+
+        void writeConfig(JsonObject &root);
+
+        bool fromConfig(JsonObject &root);
 };
 
 extern ESPVirtualDeviceManager VirtualDeviceManager;

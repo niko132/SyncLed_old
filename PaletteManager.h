@@ -3,6 +3,7 @@
 
 #include "Palette.h"
 
+#include <ArduinoJson.h>
 #include <map>
 
 class ESPPaletteManager {
@@ -14,6 +15,11 @@ class ESPPaletteManager {
         void renamePalette(String oldName, String newName);
         void deletePalette(String name);
         Palette* getPalette(String name);
+        Palette* getPalette(size_t index);
+
+        void writeConfig(JsonObject &root);
+
+        bool fromConfig(JsonObject &root);
 };
 
 extern ESPPaletteManager PaletteManager;

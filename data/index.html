@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html>
+	<meta charset="utf-8" />
+	<title>WebSocket Test</title>
+
+	<script language="javascript" type="text/javascript">
+
+var url = "ws://" + window.location.host + "/ws";
+var output;
+var button;
+
+var config;
+
+// This is called when the page finishes loading
+function init() {
+
+    // Assign page elements to variables
+    button = document.getElementById("toggleButton");
+    output = document.getElementById("output");
+
+    // Connect to WebSocket server
+    wsConnect(url);
+}
+
+// Call this to connect to the WebSocket server
+function wsConnect(url) {
+
+    // Connect to WebSocket server
+    websocket = new WebSocket(url);
+
+    // Assign callbacks
+    websocket.onopen = function(evt) { onOpen(evt) };
+    websocket.onclose = function(evt) { onClose(evt) };
+    websocket.onmessage = function(evt) { onMessage(evt) };
+    websocket.onerror = function(evt) { onError(evt) };
+}
+
+// Called when a WebSocket connection is established with the server
+function onOpen(evt) {
+    // Log connection state
+    console.log("Connected");
+
+    // Enable button
+    button.disabled = false;
+}
+
+// Called when the WebSocket connection is closed
+function onClose(evt) {
+    // Log disconnection state
+    console.log("Disconnected");
+
+    // Disable button
+    button.disabled = true;
+
+    // Try to reconnect after a few seconds
+    setTimeout(function() { wsConnect(url) }, 2000);
+}
+
+// Called when a message is received from the server
+function onMessage(evt) {
+    // Print out our received message
+    // console.log("Received: " + evt.data);
+
+    output.innerHTML += evt.data + "<br>";
+
+	config = JSON.parse(evt.data);
+	console.log(config);
+}
+
+// Called when a WebSocket error occurs
+function onError(evt) {
+    console.log("ERROR: " + evt.data);
+}
+
+// Sends a message to the server (and prints it to the console)
+function doSend(message) {
+    console.log("Sending: " + message);
+    websocket.send(message);
+}
+
+// Called whenever the HTML button is pressed
+function onPress() {
+    doSend("This is a client message");
+}
+
+// Call the init function as soon as the page loads
+window.addEventListener("load", init, false);
+
+	</script>
+
+	<h2>LED Control</h2>
+    <button id="toggleButton" onclick="onPress()" disabled>Toggle LED</button>
+	<div id="output"></div>
+</html>

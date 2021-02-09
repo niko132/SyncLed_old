@@ -2,6 +2,7 @@
 #define PALETTE_H
 
 #include <arduino.h>
+#include <ArduinoJson.h>
 #include <map>
 
 class Palette {
@@ -11,12 +12,15 @@ class Palette {
 
     public:
         Palette(String name);
+        Palette(JsonObject &root);
 
         String getName();
         void setName(String name);
 
         void addColorKey(double pos, uint32_t color);
         uint32_t getColorAtPosition(double pos);
+
+        void writeConfig(JsonObject &root);
 };
 
 #endif // PALETTE_H

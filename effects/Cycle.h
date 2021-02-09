@@ -13,6 +13,12 @@ class Cycle : public Effect {
             palette->addColorKey(1.0, rgbToColor(255, 0, 0));
         }
 
+        Cycle(JsonObject &root) {
+            String paletteName = root["paletteName"];
+            double speed = root["speed"];
+            double brightness = root["brightness"];
+        }
+
         void updateData() {
 
         }
@@ -23,7 +29,8 @@ class Cycle : public Effect {
                 val += 1.0;
             }
 
-            Palette *palette = PaletteManager.getPalette("BlueAndRed");
+            // Palette *palette = PaletteManager.getPalette("BlueAndRed");
+            Palette *palette = PaletteManager.getPalette(0);
 
             if (palette) {
                 uint32_t color = palette->getColorAtPosition(val);
@@ -35,6 +42,12 @@ class Cycle : public Effect {
             }
 
             return RgbColor(0, 0, 0);
+        }
+
+        void writeConfig(JsonObject &root) {
+            root["paletteName"] = "BlueAndRed";
+            root["speed"] = 1.0;
+            root["brightness"] = 0.5;
         }
 };
 

@@ -6,6 +6,30 @@ Palette::Palette(String name) {
     _name = name;
 }
 
+Palette::Palette(JsonObject &root) {
+    _name = root["name"].as<String>();
+
+    JsonArray keysArr = root["keys"].as<JsonArray>();
+    if (!keysArr.isNull()) {
+        for (JsonVariant keyVar : keysArr) {
+            JsonObject keyObj = keyVar.as<JsonObject>();
+            if (keyObj.isNull()) {
+                continue;
+            }
+
+            JsonVariant posVar = keyObj["pos"];
+            JsonVariant colorVar = keyObj["color"];
+
+            if (!posVar.isNull() && !colorVar.isNull()) {
+                double pos = posVar.as<double>();
+                uint32_t color = colorVar.as<uint32_t>();
+
+                _colors[pos] = color;
+            }
+        }
+    }
+}
+
 String Palette::getName() {
     return _name;
 }
@@ -78,4 +102,15 @@ uint32_t Palette::getColorAtPosition(double pos) {
     uint8_t blendedBlue = firstBlue + (secondBlue - firstBlue) * frac;
 
     return rgbToColor(blendedRed, blendedGreen, blendedBlue);
+}
+
+void Palette::writeConfig(JsonObject &root) {
+    root["name"] = _name;
+    JsonArray keysArr = root.createNestedArray("keys");
+
+    for (std::map<double, uint32_t>::iterator it = _colors.begin(); it != _colors.end(); it++) {
+        JsonObject keyObj = keysArr.createNestedObject();
+        keyObj["pos"] = it->first;
+        keyObj["color"] = it->second;
+    }
 }
