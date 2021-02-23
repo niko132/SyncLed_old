@@ -11,6 +11,8 @@
 #include "DeviceManager.h"
 #include "TimeManager.h"
 
+#include "PaletteManager.h"
+
 #include "VirtualDeviceManager.h"
 
 
@@ -152,6 +154,19 @@ void setup() {
     MessageManager.begin();
     DeviceManager.begin();
     TimeManager.begin();
+
+
+    // create at least 1 default palette
+    Palette *blueAndRedPalette = PaletteManager.createPalette("BlueAndRed");
+    blueAndRedPalette->addColorKey(0.0, rgbToColor(0, 0, 255));
+    blueAndRedPalette->addColorKey(1.0, rgbToColor(255, 0, 0));
+
+    Palette *rainbowPalette = PaletteManager.createPalette("Rainbow");
+    rainbowPalette->addColorKey(1.0 / 6.0, rgbToColor(255, 0, 0));
+    rainbowPalette->addColorKey(0.5, rgbToColor(0, 255, 0));
+    rainbowPalette->addColorKey(5.0 / 6.0, rgbToColor(0, 0, 255));
+
+
 
     VirtualDeviceManager.begin(180);
     unsigned long id1 = VirtualDeviceManager.addVirtualDevice(0, 60);

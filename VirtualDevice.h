@@ -37,22 +37,19 @@ class VirtualDevice {
         }
 
         VirtualDevice(JsonObject &root, size_t ledCount) {
-            _id = root["id"];
-            _name = root["name"].as<String>();
-            _posOffsetStart = root["posOffsetStart"];
-            _posOffsetEnd = root["posOffsetEnd"];
             _ledCount = ledCount;
-
-            JsonObject effectDataObj = root["effectData"];
-            if (effectDataObj.isNull()) {
-                _effect = new Cycle();
-            } else {
-                _effect = new Cycle(effectDataObj);
-            }
+            fromConfig(root);
         }
 
         void update(unsigned long now, RgbColor *colors) {
-            double timeVal = (now % 5000) / 5000.0;
+            // can't do anything without an effect
+            if (!_effect)
+                return;
+
+            unsigned long duration = _effect->getDuration();
+            double timeVal = (double)(now % duration) / duration;
+
+            // double timeVal = (now % 5000) / 5000.0;
             // HsbColor color(timeVal, 1.0, 1.0);
 
             for (int i = 0; i < _ledCount; i++) {
@@ -91,10 +88,29 @@ class VirtualDevice {
             root["name"] = _name;
             root["posOffsetStart"] = _posOffsetStart;
             root["posOffsetEnd"] = _posOffsetEnd;
-            root["effectId"] = (unsigned long)_effect;
+
+            if (_effect)
+                root["effectId"] = _effect->getId();
 
             JsonObject effectDataObj = root.createNestedObject("effectData");
             _effect->writeConfig(effectDataObj);
+        }
+
+        void fromConfig(JsonObject &root) {
+            _id = root["id"];
+            _name = root["name"].as<String>();
+            _posOffsetStart = root["posOffsetStart"];
+            _posOffsetEnd = root["posOffsetEnd"];
+
+            unsigned long effectId = root["effectId"];
+            _effect = EffectManager.createEffect(effectId);
+
+            if (_effect) {
+                JsonObject effectDataObj = root["effectData"];
+                if (!effectDataObj.isNull()) {
+                    _effect->setData(effectDataObj);
+                }
+            }
         }
 
 };

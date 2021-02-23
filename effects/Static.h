@@ -5,20 +5,34 @@
 #include "../PaletteManager.h"
 #include "../Utils.h"
 
+#include "../EffectManager.h"
+
 class Static : public Effect {
+    private:
+        String _paletteName;
+
     public:
-        Static() {
-            Palette *palette = PaletteManager.createPalette("BlueAndRed");
-            palette->addColorKey(0.0, rgbToColor(0, 0, 255));
-            palette->addColorKey(1.0, rgbToColor(255, 0, 0));
+        Static() : Effect(EFFECT_STATIC) {
+                // TODO change
+                _paletteName = PaletteManager.getPalette(0)->getName();
         }
 
-        void updateData() {
+        void setData(JsonObject &root) {
+            unsigned long duration = root["duration"];
+            if (duration == 0)
+                duration = 5000;
 
+            _duration = duration;
+
+
+            String paletteName = root["paletteName"];
+            if (paletteName.length() > 0) {
+                _paletteName = paletteName;
+            }
         }
 
         RgbColor update(double timeVal, double posVal) {
-            Palette *palette = PaletteManager.getPalette("BlueAndRed");
+            Palette *palette = PaletteManager.getPalette(_paletteName);
 
             if (palette) {
                 uint32_t color = palette->getColorAtPosition(posVal);
@@ -33,7 +47,8 @@ class Static : public Effect {
         }
 
         void writeConfig(JsonObject &root) {
-            root["paletteName"] = "BlueAndRed";
+            root["duration"] = _duration;
+            root["paletteName"] = _paletteName;
         }
 };
 
