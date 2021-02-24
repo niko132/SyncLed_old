@@ -9,6 +9,8 @@ var url = "ws://" + window.location.host + "/ws";
 var output;
 var button;
 
+var main;
+
 var config;
 
 // This is called when the page finishes loading
@@ -17,6 +19,8 @@ function init() {
     // Assign page elements to variables
     button = document.getElementById("toggleButton");
     output = document.getElementById("output");
+
+	main = document.getElementById("main");
 
     // Connect to WebSocket server
     wsConnect(url);
@@ -65,6 +69,8 @@ function onMessage(evt) {
 
 	config = JSON.parse(evt.data);
 	console.log(config);
+
+	handleConfig(config);
 }
 
 // Called when a WebSocket error occurs
@@ -83,6 +89,115 @@ function onPress() {
     doSend("This is a client message");
 }
 
+// called when a new config arrives and needs to be displayed
+function handleConfig(config) {
+
+	// remove all children
+	main.innerHTML = '';
+
+	var devices = config.devices;
+	if (!devices) {
+		return;
+	}
+
+	devices.forEach((device) => {
+		var deviceContainer = document.createElement("div");
+		main.appendChild(deviceContainer);
+
+		var ipHeadline = document.createElement("h2");
+		deviceContainer.appendChild(ipHeadline);
+		var ipText = document.createTextNode(device.ip + " (" + device.ledCount + " leds)");
+		ipHeadline.appendChild(ipText);
+
+		var virtualDevices = device.virtualDevices;
+		if (!virtualDevices) {
+			return;
+		}
+
+		virtualDevices.forEach((virtualDevice) => {
+			var virtualDeviceContainer = document.createElement("div");
+			deviceContainer.appendChild(virtualDeviceContainer);
+
+			var nameHeadline = document.createElement("h3");
+			virtualDeviceContainer.appendChild(nameHeadline);
+			var nameText = document.createTextNode(virtualDevice.name + " (" + virtualDevice.id + ")");
+			nameHeadline.appendChild(nameText);
+
+
+			// index
+			var indexParagraph = document.createElement("p");
+			virtualDeviceContainer.appendChild(indexParagraph);
+			var indexText = document.createTextNode(virtualDevice.startIndex + " - " + virtualDevice.endIndex);
+			indexParagraph.appendChild(indexText);
+
+			var startIndexSlider = createSlider(1, 0, device.ledCount - 1, virtualDevice.startIndex, function() {
+				var value = parseInt(this.value);
+				virtualDevice.startIndex = value;
+				indexText.nodeValue = virtualDevice.startIndex + " - " + virtualDevice.endIndex;
+			}, function() {
+				var value = parseInt(this.value);
+				virtualDevice.startIndex = value;
+				doSend(JSON.stringify(config));
+			});
+			virtualDeviceContainer.appendChild(startIndexSlider);
+
+			var endIndexSlider = createSlider(1, 1, device.ledCount, virtualDevice.endIndex, function() {
+				var value = parseInt(this.value);
+				virtualDevice.endIndex = value;
+				indexText.nodeValue = virtualDevice.startIndex + " - " + virtualDevice.endIndex;
+			}, function() {
+				var value = parseInt(this.value);
+				virtualDevice.endIndex = value;
+				doSend(JSON.stringify(config));
+			});
+			virtualDeviceContainer.appendChild(endIndexSlider);
+
+
+			// posOffset
+			var posOffsetParagraph = document.createElement("p");
+			virtualDeviceContainer.appendChild(posOffsetParagraph);
+			var posOffsetText = document.createTextNode(virtualDevice.posOffsetStart + " - " + virtualDevice.posOffsetEnd);
+			posOffsetParagraph.appendChild(posOffsetText);
+
+			var posOffsetStartSlider = createSlider(0.01, 0.0, 1.0, virtualDevice.posOffsetStart, function() {
+				var value = parseFloat(this.value);
+				virtualDevice.posOffsetStart = value;
+				posOffsetText.nodeValue = virtualDevice.posOffsetStart + " - " + virtualDevice.posOffsetEnd;
+			}, function() {
+				var value = parseFloat(this.value);
+				virtualDevice.posOffsetStart = value;
+				doSend(JSON.stringify(config));
+			});
+			virtualDeviceContainer.appendChild(posOffsetStartSlider);
+
+			var posOffsetEndSlider = createSlider(0.01, 0.0, 1.0, virtualDevice.posOffsetEnd, function() {
+				var value = parseFloat(this.value);
+				virtualDevice.posOffsetEnd = value;
+				posOffsetText.nodeValue = virtualDevice.posOffsetStart + " - " + virtualDevice.posOffsetEnd;
+			}, function() {
+				var value = parseFloat(this.value);
+				virtualDevice.posOffsetEnd = value;
+				doSend(JSON.stringify(config));
+			});
+			virtualDeviceContainer.appendChild(posOffsetEndSlider);
+		});
+	});
+
+}
+
+function createSlider(step, min, max, value, oninput, onchange) {
+	var slider = document.createElement("input");
+	slider.type = 'range';
+	slider.step = step;
+	slider.min = min;
+	slider.max = max;
+	slider.value = value;
+	slider.oninput = oninput;
+	slider.onchange = onchange;
+
+	return slider;
+}
+
 // Call the init function as soon as the page loads
 window.addEventListener("load", init, false);
 
@@ -91,4 +206,5 @@ window.addEventListener("load", init, false);
 	<h2>LED Control</h2>
     <button id="toggleButton" onclick="onPress()" disabled>Toggle LED</button>
 	<div id="output"></div>
+	<div id="main"></div>
 </html>

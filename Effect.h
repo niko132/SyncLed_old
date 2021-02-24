@@ -4,6 +4,8 @@
 #include <NeoPixelBus.h>
 #include <ArduinoJson.h>
 
+#define DEFAULT_DURATION 5000 // 5 secs
+
 class Effect {
     private:
         unsigned long _id;
@@ -14,7 +16,7 @@ class Effect {
     public:
         Effect(unsigned long id) {
             _id = id;
-            _duration = 5000; // default duration is 5secs
+            _duration = DEFAULT_DURATION;
         }
 
         unsigned long getId() {
@@ -25,10 +27,19 @@ class Effect {
             return _duration;
         }
 
-        virtual void setData(JsonObject &root) = 0;
         virtual RgbColor update(double timeVal, double posVal) = 0;
 
-        virtual void writeConfig(JsonObject &root) = 0;
+        virtual void setData(JsonObject &root) {
+            unsigned long duration = root["duration"];
+            if (duration == 0)
+                duration = DEFAULT_DURATION;
+
+            _duration = duration;
+        }
+
+        virtual void writeConfig(JsonObject &root) {
+                root["duration"] = _duration;
+        }
 };
 
 #endif // EFFECT_H

@@ -18,12 +18,7 @@ class Cycle : public Effect {
         }
 
         void setData(JsonObject &root) {
-            unsigned long duration = root["duration"];
-            if (duration == 0)
-                duration = 5000;
-
-            _duration = duration;
-
+            Effect::setData(root);
 
             String paletteName = root["paletteName"];
             if (paletteName.length() > 0) {
@@ -37,8 +32,6 @@ class Cycle : public Effect {
                 val += 1.0;
             }
 
-            // Palette *palette = PaletteManager.getPalette("BlueAndRed");
-            // Palette *palette = PaletteManager.getPalette(0);
             Palette *palette = PaletteManager.getPalette(_paletteName);
 
             if (palette) {
@@ -54,7 +47,8 @@ class Cycle : public Effect {
         }
 
         void writeConfig(JsonObject &root) {
-            root["duration"] = _duration;
+            Effect::writeConfig(root);
+
             root["paletteName"] = _paletteName;
         }
 };

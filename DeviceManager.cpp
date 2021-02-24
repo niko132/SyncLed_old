@@ -48,12 +48,25 @@ void ESPDeviceManager::update() {
         _lastHeartbeatMillis = now;
     }
 
+    // yield to process latest wifi events
+    // may help to reduce false negatives
+    yield();
+
+    // update the current timestamp to be after the data structure has been updated
+    now = millis();
+
     std::map<IPAddress, unsigned long>::iterator it = _activeDevices.begin();
 
     while(it != _activeDevices.end()) {
         std::map<IPAddress, unsigned long>::iterator current = it++;
 
         if (now - current->second > 3.5 * HEARTBEAT_INTERVALL) {
+            Serial.print(current->first);
+            Serial.print(" last seen ");
+            Serial.print(String(now - current->second));
+            Serial.println("ms  ago");
+
+
             IPAddress ip = current->first;
             Logger.print(ip);
             Logger.println(" is offline");
@@ -110,6 +123,32 @@ std::set<IPAddress> ESPDeviceManager::getActiveDevices() {
     }
 
     return devices;
+}
+
+void ESPDeviceManager::writeConfig(JsonObject &root) {
+    DynamicJsonDocument doc(2048);
+    DeserializationError err = deserializeJson(doc, _config);
+    JsonArray devicesArr = doc.as<JsonArray>();
+
+    root["devices"] = devicesArr;
+}
+
+bool ESPDeviceManager::fromConfig(JsonObject &root) {
+    JsonArray devicesArr = root["devices"].as<JsonArray>();
+    if (devicesArr.isNull()) {
+        Logger.println("DevicesArray is null");
+        return false;
+    }
+
+    // TODO save devicesArr
+    // _config = devicesArr;
+    _config = "";
+    serializeJson(devicesArr, _config);
+    Logger.println("Saved: " + _config);
+
+    // TODO check validity
+
+    return true;
 }
 
 ESPDeviceManager DeviceManager;

@@ -174,9 +174,29 @@ void ESPVirtualDeviceManager::logConfig() {
 }
 
 void ESPVirtualDeviceManager::writeConfig(JsonObject &root) {
-    JsonArray devicesArr = root.createNestedArray("devices");
+    JsonArray devicesArr = root["devices"];
+    if (devicesArr.isNull()) {
+        devicesArr = root.createNestedArray("devices");
+    }
 
-    JsonObject ownDeviceObj = devicesArr.createNestedObject();
+    JsonObject ownDeviceObj;
+
+    for (JsonVariant deviceVar : devicesArr) {
+        JsonObject deviceObj = deviceVar.as<JsonObject>();
+        if (deviceObj.isNull()) {
+            continue;
+        }
+
+        if (WiFi.localIP().toString().equals(deviceObj["ip"].as<String>())) {
+            ownDeviceObj = deviceObj;
+            break;
+        }
+    }
+
+    if (ownDeviceObj.isNull()) {
+        ownDeviceObj = devicesArr.createNestedObject();
+    }
+
     ownDeviceObj["ip"] = WiFi.localIP().toString();
     ownDeviceObj["ledCount"] = _ledCount;
 

@@ -18,12 +18,7 @@ class Static : public Effect {
         }
 
         void setData(JsonObject &root) {
-            unsigned long duration = root["duration"];
-            if (duration == 0)
-                duration = 5000;
-
-            _duration = duration;
-
+            Effect::setData(root);
 
             String paletteName = root["paletteName"];
             if (paletteName.length() > 0) {
@@ -47,7 +42,8 @@ class Static : public Effect {
         }
 
         void writeConfig(JsonObject &root) {
-            root["duration"] = _duration;
+            Effect::writeConfig(root);
+
             root["paletteName"] = _paletteName;
         }
 };

@@ -2,6 +2,7 @@
 #define DEVICEMANAGER_H
 
 #include <Ethernet.h>
+#include <ArduinoJson.h>
 
 #include <map>
 #include <set>
@@ -31,6 +32,8 @@ class ESPDeviceManager {
         unsigned long _currentHandlerId = 0;
         std::unordered_set<HandlerWrapper<OnDeviceChangeHandler>> _handler;
 
+        String _config;
+
         void sendHeartbeat();
         void requestHeartbeat();
 
@@ -43,6 +46,9 @@ class ESPDeviceManager {
 
         size_t getActiveDeviceCount();
         std::set<IPAddress> getActiveDevices();
+
+        void writeConfig(JsonObject &root);
+        bool fromConfig(JsonObject &root);
 };
 
 extern ESPDeviceManager DeviceManager;

@@ -85,6 +85,7 @@ void setup() {
 
             DynamicJsonDocument doc(2048);
             JsonObject root = doc.to<JsonObject>();
+            DeviceManager.writeConfig(root);
             VirtualDeviceManager.writeConfig(root);
             PaletteManager.writeConfig(root);
 
@@ -197,9 +198,10 @@ void handleConfig(String json) {
     DeserializationError err = deserializeJson(doc, json);
     JsonObject root = doc.as<JsonObject>();
     bool success1 = PaletteManager.fromConfig(root);
-    bool success2 = VirtualDeviceManager.fromConfig(root);
+    bool success2 = DeviceManager.fromConfig(root);
+    bool success3 = VirtualDeviceManager.fromConfig(root);
 
-    Logger.println("Got config: " + String(success1) + " " + String(success2));
+    Logger.println("Got config: " + String(success1) + " " + String(success2) + " " + String(success3));
 }
 
 void setupOTA() {
