@@ -3,6 +3,12 @@
 	<meta charset="utf-8" />
 	<title>WebSocket Test</title>
 
+	<script src="conversions.js"></script>
+	<script src="color-convert.js"></script>
+	<script src="parse-color.js"></script>
+	<link rel="stylesheet" href="grapick.min.css">
+	<script src="grapick.min.js"></script>
+
 	<script language="javascript" type="text/javascript">
 
 var url = "ws://" + window.location.host + "/ws";
@@ -12,6 +18,59 @@ var button;
 var main;
 
 var config;
+
+var effects = [
+	{
+		"id": 1,
+		"name": "Cycle",
+		"settings": [
+			{
+				"name": "Duration",
+				"key": "duration",
+				"type": "slider",
+				"config": {
+					"step": 1,
+					"min": 1,
+					"max": 10000,
+					"default": 5000
+				}
+			},
+			{
+				"name": "Palette",
+				"key": "paletteName",
+				"type": "palette",
+				"config": {
+					"default": "Rainbow"
+				}
+			}
+		]
+	},
+	{
+		"id": 2,
+		"name": "Static",
+		"settings": [
+			{
+				"name": "Duration",
+				"key": "duration",
+				"type": "slider",
+				"config": {
+					"step": 1,
+					"min": 1,
+					"max": 10000,
+					"default": 5000
+				}
+			},
+			{
+				"name": "Palette",
+				"key": "paletteName",
+				"type": "palette",
+				"config": {
+					"default": "Rainbow"
+				}
+			}
+		]
+	},
+];
 
 // This is called when the page finishes loading
 function init() {
@@ -180,8 +239,96 @@ function handleConfig(config) {
 				doSend(JSON.stringify(config));
 			});
 			virtualDeviceContainer.appendChild(posOffsetEndSlider);
+
+
+
+			var effectSelection = document.createElement("select");
+			virtualDeviceContainer.appendChild(effectSelection);
+			effectSelection.onchange = function() {
+				var value = parseInt(this.value);
+				console.log("Effect changed: " + value);
+				virtualDevice.effectId = value;
+				doSend(JSON.stringify(config));
+			}
+
+			effects.forEach((effect) => {
+				var effectOption = document.createElement("option");
+				effectSelection.appendChild(effectOption);
+				effectOption.value = effect.id;
+				effectOption.text = effect.name;
+
+				if (effect.id == virtualDevice.effectId) {
+					effectOption.selected = true;
+				}
+			});
+
+
+			var effectSettings = createEffectSettings(virtualDevice.effectData, virtualDevice.effectId);
+			virtualDeviceContainer.appendChild(effectSettings);
 		});
 	});
+
+
+	var palettes = config.palettes;
+
+	if (!palettes) {
+		return;
+	}
+
+	palettes.forEach((palette) => {
+		var paletteContainer = document.createElement("div");
+		main.appendChild(paletteContainer);
+
+		var nameHeadline = document.createElement("h3");
+		paletteContainer.appendChild(nameHeadline);
+		var nameText = document.createTextNode(palette.name);
+		nameHeadline.appendChild(nameText);
+
+		var gradient = document.createElement("div");
+		paletteContainer.appendChild(gradient);
+
+		const gp = new Grapick({el: gradient, type: "repeating-linear"});
+		palette.keys.forEach((key) => {
+			var pos = key.pos;
+			var color = key.color;
+
+			var r = (color >> 16) & 255;
+			var g = (color >> 8) & 255;
+			var b = color & 255;
+
+			gp.addHandler(Math.round(pos * 100), rgb(r, g, b), {silent: true});
+		});
+
+		var updateHandler = function() {
+			palette.keys = []; // empty to realize removing handlers
+
+			gp.getHandlers().forEach((h, i) => {
+				var color = parseColor(h.getColor());
+
+				var r = color.rgb[0];
+				var g = color.rgb[1];
+				var b = color.rgb[2];
+
+				console.log("#" + i + ": " + r + " " + g + " " + b);
+
+				var color = (r << 16) | (g << 8) | b;
+				palette.keys.push({"pos":h.getPosition() / 100.0, "color":color});
+
+				doSend(JSON.stringify(config));
+			});
+		}
+
+
+		gp.on('change', complete => {
+			if (!complete) {
+				return;
+			}
+
+			console.log("Gradient changed: " + gp.getSafeValue());
+			updateHandler();
+		});
+	});
+
 
 }
 
@@ -196,6 +343,100 @@ function createSlider(step, min, max, value, oninput, onchange) {
 	slider.onchange = onchange;
 
 	return slider;
+}
+
+function createEffectSettings(data, effectId) {
+	var settingsContainer = document.createElement("div");
+
+	var effect;
+	effects.forEach((item) => {
+		if (item.id == effectId) {
+			effect = item;
+		}
+	});
+
+	effect.settings.forEach((setting) => {
+		var settingContainer = document.createElement("div");
+		settingsContainer.appendChild(settingContainer);
+
+		var nameParagraph = document.createElement("p");
+		settingContainer.appendChild(nameParagraph);
+		var nameParagraphText = document.createTextNode(setting.name);
+		nameParagraph.appendChild(nameParagraphText);
+
+		var value = data[setting.key];
+
+		if (!value) {
+			value = effect.config.default;
+		}
+
+		var oninput = function() {
+			// TODO do smth
+		};
+
+		var onchangeInt = function() {
+			var value = parseInt(this.value);
+			console.log("SETTING " + setting.key + " changed: " + value);
+			data[setting.key] = value;
+			doSend(JSON.stringify(config));
+		}
+
+		var onchangeString = function() {
+			var value = this.value;
+			console.log("SETTING " + setting.key + " changed: " + value);
+			data[setting.key] = value;
+			doSend(JSON.stringify(config));
+		}
+
+		var element;
+
+		switch(setting.type) {
+			case "slider":
+				element = createSliderSetting(setting.config, value, oninput, onchangeInt);
+				settingContainer.appendChild(element);
+				break;
+			case "palette":
+				element = createPaletteSetting(value, onchangeString);
+				settingContainer.appendChild(element);
+				break;
+			default:
+				console.log("UNKNOWN SETTING TYPE");
+		}
+	});
+
+	return settingsContainer;
+}
+
+function createSliderSetting(config, value, oninput, onchange) {
+	return createSlider(config.step, config.min, config.max, value, oninput, onchange);
+}
+
+function createPaletteSetting(value, onchange) {
+	var paletteSelection = document.createElement("select");
+	paletteSelection.onchange = onchange;
+
+	var palettes = config.palettes;
+
+	if (!palettes) {
+		return null;
+	}
+
+	palettes.forEach((palette) => {
+		var paletteOption = document.createElement("option");
+		paletteSelection.appendChild(paletteOption);
+		paletteOption.value = palette.name;
+		paletteOption.text = palette.name;
+
+		if (palette.name == value) {
+			paletteOption.selected = true;
+		}
+	});
+
+	return paletteSelection;
+}
+
+function rgb(r, g, b) {
+	return ["rgb(",r,",",g,",",b,")"].join("");
 }
 
 // Call the init function as soon as the page loads

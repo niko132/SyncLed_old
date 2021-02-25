@@ -69,10 +69,24 @@ void setup() {
         request->send(200, "text/html", String(ESP.getFreeHeap()));
     });
 
+    /*
     server.on("/", HTTP_GET, [](AsyncWebServerRequest *request) {
         Logger.println("Request to index.html");
 		request->send(SPIFFS, "/index.html", String());
 	});
+
+    server.on("/grapick.min.js", HTTP_GET, [](AsyncWebServerRequest *request) {
+        Logger.println("Request to Grapick JS");
+		request->send(SPIFFS, "/grapick.min.js", String());
+	});
+
+    server.on("/grapick.min.css", HTTP_GET, [](AsyncWebServerRequest *request) {
+        Logger.println("Request to Grapick CSS");
+		request->send(SPIFFS, "/grapick.min.css", String());
+	});
+    */
+
+    server.serveStatic("/", SPIFFS, "/").setDefaultFile("index.html");
 
 
 
